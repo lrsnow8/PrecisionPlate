@@ -6,7 +6,7 @@ PrecisionPlate is a conversational nutrition assistant that runs in your termina
 
 ## How it works
 
-PrecisionPlate is built as a single LangGraph agent powered by Claude. It maintains memory across sessions, tracks your meals in a local SQLite database, and answers nutrition questions using a built-in knowledge base (ChromaDB + sentence-transformers). No data leaves your machine except the LLM API calls to Anthropic.
+PrecisionPlate is built as a single LangGraph agent created to be used with claude. It maintains memory across sessions, tracks your meals in a local SQLite database, and answers nutrition questions using a built-in knowledge base (ChromaDB + sentence-transformers). No data leaves your machine except the LLM API calls to Anthropic.
 
 ---
 
@@ -22,7 +22,7 @@ pip install -r requirements.txt
 ### 2. Set your Anthropic API key
 
 ```
-export CLAUDE_API_KEY=your_key_here
+Do this however you want but be safe
 ```
 
 Add this to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) to make it permanent.
