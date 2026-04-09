@@ -21,6 +21,39 @@ PrecisionPlate is a conversational AI nutrition assistant built as a single Lang
 
 ---
 
+## Environment Variables
+
+| Variable | Used By | Description |
+|---|---|---|
+| `CLAUDE_API_KEY` | All LLM calls | Anthropic API key. This name is already used by the existing `image_to_macro.py` and **must be used consistently across the entire project**. Do NOT use `ANTHROPIC_API_KEY`. |
+
+All modules that instantiate `ChatAnthropic` must read the key as:
+
+```python
+api_key=os.environ.get("CLAUDE_API_KEY")
+```
+
+---
+
+## Dependencies (requirements.txt)
+
+```
+langchain-anthropic==1.4.0
+langchain-core==1.2.26
+langchain-community==0.4.1
+langgraph==1.1.6
+langgraph-checkpoint-sqlite==3.0.3
+chromadb==1.5.7
+sentence-transformers==5.3.0
+rich==14.1.0
+prompt_toolkit==3.0.41
+```
+
+> `sqlite3` is Python stdlib — no pip install needed.
+> After installing, run `pip freeze > requirements.txt` to confirm exact working pins before committing.
+
+---
+
 ## Directory Structure
 
 ```
@@ -60,6 +93,30 @@ PrecisionPlate/
 
 ---
 
+## Setup Notes
+
+### Directories to create
+
+The following directories are not tracked by git and must be created before running the app:
+
+| Directory | Created by | Purpose |
+|---|---|---|
+| `db/` | `db/database.py` on first run (auto-creates if absent) | SQLite database file |
+| `rag/chroma_db/` | `rag/ingest.py` on first run (auto-creates if absent) | ChromaDB vector store |
+| `rag/docs/` | Must be populated **manually** before running `rag/ingest.py` | Raw nutrition knowledge base files |
+
+### `.gitignore` entries required
+
+```
+db/precision_plate.db
+rag/chroma_db/
+__pycache__/
+*.pyc
+.env
+```
+
+---
+
 ## SQLite Schema
 
 Managed by `db/database.py`. The LangGraph `SqliteSaver` checkpointer creates its own internal tables in the same DB file for conversation checkpointing.
@@ -73,6 +130,8 @@ CREATE TABLE users (
 );
 
 -- Daily macro / calorie goals
+-- Active goal = most recent row for the user:
+--   SELECT * FROM goals WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1
 CREATE TABLE goals (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id     INTEGER REFERENCES users(id),
@@ -121,6 +180,22 @@ class NutritionState(TypedDict):
     today_snapshot: dict  # today's macro totals, refreshed each turn
 ```
 
+### User Identity & Bootstrapping
+
+PrecisionPlate is a **single-user CLI app**. User identity is handled as follows:
+
+1. On first launch, `main.py` calls `db/database.py::bootstrap_user()`.
+2. `bootstrap_user()` runs `SELECT id FROM users LIMIT 1`.
+3. If no row exists, it inserts `name = "default"` and returns the new `id` (always `1`).
+4. The integer `id` is cast to a string (`"1"`) and used as both:
+   - `user_id` in `NutritionState`
+   - `thread_id` in the checkpointer config: `{"configurable": {"thread_id": "1"}}`
+5. On all subsequent launches, the same `SELECT` returns `"1"` and the checkpointer restores full prior state.
+
+No CLI prompt for a name is required. `bootstrap_user()` must be called before the graph is invoked.
+
+---
+
 ### Graph Structure
 
 ```
@@ -168,21 +243,44 @@ yes           no
 | `tools` | LangGraph `ToolNode`; executes whichever tool(s) Claude chose and returns results |
 | `summarize` | Fires when `len(messages) > 20`; calls Claude to compress older messages into `state.summary`; trims raw message list to last 10 |
 
+> **`load_context` fallback behavior:** Calls `db/database.py::get_daily_summary(user_id)`.
+> If no meals have been logged today, returns a zero-filled snapshot:
+> ```python
+> today_snapshot = {"calories": 0, "protein_g": 0, "carbs_g": 0, "fat_g": 0, "goal": {...}}
+> ```
+> If no goal has been set yet, the `"goal"` key contains `None` for all values.
+> The agent system prompt must handle this gracefully — e.g., prompt the user to run `set_goal` on first launch.
+
 ### Routing Logic
+
+Two routing functions are required — one out of `chatbot`, one out of `tools`:
 
 ```python
 def should_continue(state: NutritionState):
+    """Conditional edge from chatbot node."""
     last_message = state["messages"][-1]
     if last_message.tool_calls:
         return "tools"
     if len(state["messages"]) > 20:
         return "summarize"
     return END
+
+
+def after_tools(state: NutritionState):
+    """Conditional edge from tools node.
+    Ensures summarization can trigger even after tool-heavy turns."""
+    if len(state["messages"]) > 20:
+        return "summarize"
+    return "chatbot"
 ```
+
+`after_tools` must be wired as the conditional edge out of the `tools` node in `agent/graph.py`.
+Without it, summarization never fires when the last message always contains tool calls.
 
 ### Persistence (Cross-Session Memory)
 
 ```python
+# Requires: pip install langgraph-checkpoint-sqlite (separate package in LangGraph 1.x)
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 checkpointer = SqliteSaver.from_conn_string("db/precision_plate.db")
@@ -198,6 +296,15 @@ The `SqliteSaver` checkpointer persists the entire graph state (messages + summa
 ---
 
 ## RAG Pipeline
+
+**ChromaDB persistence path:** `rag/chroma_db/` (relative to project root).
+Both `rag/ingest.py` and `rag/retriever.py` must use:
+
+```python
+import chromadb
+client = chromadb.PersistentClient(path="rag/chroma_db")
+collection = client.get_or_create_collection("nutrition_knowledge")
+```
 
 ### Ingestion (one-time, run `rag/ingest.py`)
 
@@ -238,6 +345,38 @@ All tools are decorated with LangChain's `@tool` and registered with the `chatbo
 | `get_meal_recommendation` | None | Suggested meal based on remaining macros + RAG guidance |
 | `get_historical_report` | Period (`"week"`, `"month"`) | Aggregated meal stats from SQLite |
 
+### `meal_logger_vision` Integration Contract
+
+`image_to_macro.py::describe_image()` returns a raw `AIMessage` with prose text. `meal_logger_vision.py` must extract structured macro data from it.
+
+**Required approach:** pass a prompt to `describe_image()` that forces JSON output:
+
+```python
+VISION_PROMPT = """
+Analyze the food in this image and return ONLY a JSON object with this exact structure:
+{
+  "description": "brief meal description",
+  "calories": <number>,
+  "protein_g": <number>,
+  "carbs_g": <number>,
+  "fat_g": <number>
+}
+Do not include any other text, markdown, or explanation outside the JSON object.
+"""
+```
+
+`meal_logger_vision.py` then parses the result as:
+
+```python
+import json
+data = json.loads(response.content)
+```
+
+On `json.JSONDecodeError`, the tool must **return an error string** to the agent (do not raise an exception), e.g.:
+```python
+return "Error: could not parse macro data from image. Please try a clearer photo."
+```
+
 ---
 
 ## Summarization Memory Flow
@@ -274,11 +413,17 @@ The CLI loop in `main.py` is a thin wrapper over `graph.invoke()`. Migrating to 
 
 ## Build Order
 
-1. `requirements.txt` — pin all dependencies
-2. `db/database.py` — schema creation + CRUD helpers
-3. `rag/ingest.py` + `rag/retriever.py` — ChromaDB pipeline
-4. `tools/*.py` — all 7 LangChain tools
-5. `agent/state.py` — `NutritionState` TypedDict
-6. `agent/prompts.py` — nutritionist system prompt
-7. `agent/graph.py` — LangGraph `StateGraph` wiring all nodes
-8. `main.py` — CLI loop
+1. `.gitignore` — add entries from Setup Notes above
+2. `requirements.txt` — pin all dependencies
+3. `db/database.py` — schema creation + CRUD helpers, including `bootstrap_user()`
+4. `rag/ingest.py` + `rag/retriever.py` — ChromaDB pipeline
+5. `tools/*.py` — all 7 LangChain tools
+6. `agent/state.py` — `NutritionState` TypedDict
+7. `agent/prompts.py` — nutritionist system prompt
+8. `agent/graph.py` — LangGraph `StateGraph` wiring all nodes, including `after_tools` conditional edge
+9. `main.py` — CLI loop
+
+**`main.py` notes:**
+- Call `bootstrap_user()` before invoking the graph to ensure `user_id = "1"` is always available.
+- Photo meal logging: the user types a message containing a valid file path (e.g., `log photo /path/to/meal.jpg`). The agent detects the path via the system prompt instruction and calls `log_meal_photo` automatically — no special CLI parsing required in `main.py`.
+- The system prompt in `agent/prompts.py` must include an instruction such as: *"If the user's message contains a file path ending in `.jpg`, `.jpeg`, or `.png`, call the `log_meal_photo` tool with that path."*
