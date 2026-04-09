@@ -11,11 +11,15 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 
 from db.database import bootstrap_user
 from agent.graph import build_graph
+from agent.callbacks import RichCallbackHandler
 
 console = Console()
 
 
 def main():
+    # --verbose / -v flag enables live execution tracing
+    verbose = "--verbose" in sys.argv or "-v" in sys.argv
+
     # Ensure API key is present
     if not os.environ.get("CLAUDE_API_KEY"):
         console.print("[bold red]Error:[/bold red] CLAUDE_API_KEY environment variable is not set.")
@@ -23,7 +27,8 @@ def main():
 
     console.print(Panel.fit(
         "[bold green]PrecisionPlate[/bold green] — Your personal nutrition assistant\n"
-        "Type your message and press Enter. Type [bold]exit[/bold] or [bold]quit[/bold] to stop.",
+        "Type your message and press Enter. Type [bold]exit[/bold] or [bold]quit[/bold] to stop."
+        + ("\n[dim]Verbose mode on — execution trace printed to stderr.[/dim]" if verbose else ""),
         border_style="green",
     ))
 
@@ -53,12 +58,16 @@ def main():
                 break
 
             try:
+                invoke_config = dict(config)
+                if verbose:
+                    invoke_config["callbacks"] = [RichCallbackHandler()]
+
                 result = graph.invoke(
                     {
                         "messages": [HumanMessage(content=user_input)],
                         "user_id": user_id,
                     },
-                    config=config,
+                    config=invoke_config,
                 )
 
                 # Extract the last AI message
@@ -66,7 +75,16 @@ def main():
                 ai_reply = None
                 for msg in reversed(messages):
                     if hasattr(msg, "type") and msg.type == "ai":
-                        ai_reply = msg.content
+                        content = msg.content
+                        # Claude may return a list of content blocks (e.g. when
+                        # tool calls are involved). Extract only the text parts.
+                        if isinstance(content, list):
+                            content = " ".join(
+                                block.get("text", "")
+                                for block in content
+                                if isinstance(block, dict) and block.get("type") == "text"
+                            ).strip()
+                        ai_reply = content
                         break
 
                 if ai_reply:
