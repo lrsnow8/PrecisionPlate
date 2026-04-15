@@ -12,6 +12,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from db.database import bootstrap_user
 from agent.graph import build_graph
 from agent.callbacks import RichCallbackHandler
+from tools.meal_logger_vision import log_meal_photo
 
 console = Console()
 
@@ -32,10 +33,9 @@ def main():
         border_style="green",
     ))
 
-    # Bootstrap user — always returns "1"
-    user_id = bootstrap_user()
-    thread_id = user_id
-    config = {"configurable": {"thread_id": thread_id}}
+    # Bootstrap DB and default user row
+    bootstrap_user()
+    config = {"configurable": {"thread_id": "1"}}
 
     session = PromptSession(history=InMemoryHistory())
 
@@ -57,16 +57,28 @@ def main():
                 console.print("[dim]Goodbye![/dim]")
                 break
 
+            if user_input.startswith("/image"):
+                parts = user_input.split(maxsplit=1)
+                if len(parts) < 2 or not parts[1].strip():
+                    console.print("[bold red]Usage:[/bold red] /image <path-to-image>")
+                    continue
+                image_path = parts[1].strip()
+                if not os.path.isfile(image_path):
+                    console.print(f"[bold red]Error:[/bold red] File not found: {image_path}")
+                    continue
+                console.print("[dim]Analyzing image...[/dim]")
+                result = log_meal_photo.invoke({"image_path": image_path})
+                console.print("\n[bold cyan]PrecisionPlate:[/bold cyan]")
+                console.print(Markdown(result))
+                continue
+
             try:
                 invoke_config = dict(config)
                 if verbose:
                     invoke_config["callbacks"] = [RichCallbackHandler()]
 
                 result = graph.invoke(
-                    {
-                        "messages": [HumanMessage(content=user_input)],
-                        "user_id": user_id,
-                    },
+                    {"messages": [HumanMessage(content=user_input)]},
                     config=invoke_config,
                 )
 

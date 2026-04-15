@@ -4,12 +4,11 @@ from db.database import get_historical_report as _get_historical_report
 
 
 @tool
-def get_historical_report(user_id: str, period: str) -> str:
+def get_historical_report(period: str) -> str:
     """
     Return an aggregated nutrition report for the past week or month.
 
     Args:
-        user_id: The user's ID string.
         period: Either "week" (last 7 days) or "month" (last 30 days).
 
     Returns:
@@ -19,7 +18,7 @@ def get_historical_report(user_id: str, period: str) -> str:
         if period not in ("week", "month"):
             return "Error: period must be 'week' or 'month'."
 
-        rows = _get_historical_report(user_id, period)
+        rows = _get_historical_report(period)
 
         if not rows:
             return f"No meals logged in the past {period}."

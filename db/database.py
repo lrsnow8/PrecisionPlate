@@ -79,7 +79,7 @@ def bootstrap_user() -> str:
 # Goals
 # ---------------------------------------------------------------------------
 
-def set_goal(user_id: str, calories: float, protein_g: float,
+def set_goal(calories: float, protein_g: float,
              carbs_g: float, fat_g: float) -> None:
     """Insert a new goal row for the user (most recent row = active goal)."""
     conn = get_db_connection()
@@ -89,14 +89,14 @@ def set_goal(user_id: str, calories: float, protein_g: float,
             INSERT INTO goals (user_id, calories, protein_g, carbs_g, fat_g)
             VALUES (?, ?, ?, ?, ?)
             """,
-            (int(user_id), calories, protein_g, carbs_g, fat_g),
+            (1, calories, protein_g, carbs_g, fat_g),
         )
         conn.commit()
     finally:
         conn.close()
 
 
-def get_goal(user_id: str) -> dict | None:
+def get_goal() -> dict | None:
     """Return the active goal dict for the user, or None if not set."""
     conn = get_db_connection()
     try:
@@ -104,11 +104,10 @@ def get_goal(user_id: str) -> dict | None:
             """
             SELECT calories, protein_g, carbs_g, fat_g
             FROM goals
-            WHERE user_id = ?
+            WHERE user_id = 1
             ORDER BY updated_at DESC
             LIMIT 1
             """,
-            (int(user_id),),
         ).fetchone()
         if row is None:
             return None
@@ -121,7 +120,7 @@ def get_goal(user_id: str) -> dict | None:
 # Meals
 # ---------------------------------------------------------------------------
 
-def log_meal(user_id: str, description: str, source: str) -> int:
+def log_meal(description: str, source: str) -> int:
     """
     Insert a meal session row and return the new meal id.
     source should be 'text' or 'photo'.
@@ -133,7 +132,7 @@ def log_meal(user_id: str, description: str, source: str) -> int:
             INSERT INTO meals (user_id, description, source)
             VALUES (?, ?, ?)
             """,
-            (int(user_id), description, source),
+            (1, description, source),
         )
         conn.commit()
         return cursor.lastrowid
@@ -174,7 +173,7 @@ def log_meal_items(meal_id: int, items: list[dict]) -> None:
 # Daily summary
 # ---------------------------------------------------------------------------
 
-def get_daily_summary(user_id: str) -> dict:
+def get_daily_summary() -> dict:
     """
     Return today's macro totals and the active goal.
 
@@ -205,10 +204,10 @@ def get_daily_summary(user_id: str) -> dict:
                 COALESCE(SUM(mi.fat_g),     0) AS fat_g
             FROM meal_items mi
             JOIN meals m ON m.id = mi.meal_id
-            WHERE m.user_id = ?
+            WHERE m.user_id = 1
               AND DATE(m.logged_at) = ?
             """,
-            (int(user_id), today),
+            (today,),
         ).fetchone()
 
         totals = {
@@ -223,11 +222,10 @@ def get_daily_summary(user_id: str) -> dict:
             """
             SELECT calories, protein_g, carbs_g, fat_g
             FROM goals
-            WHERE user_id = ?
+            WHERE user_id = 1
             ORDER BY updated_at DESC
             LIMIT 1
             """,
-            (int(user_id),),
         ).fetchone()
 
         if goal_row is None:
@@ -245,7 +243,7 @@ def get_daily_summary(user_id: str) -> dict:
 # Historical report
 # ---------------------------------------------------------------------------
 
-def get_historical_report(user_id: str, period: str) -> list[dict]:
+def get_historical_report(period: str) -> list[dict]:
     """
     Return daily aggregated macro totals for the given period.
     period: "week" (last 7 days) or "month" (last 30 days).
@@ -275,12 +273,12 @@ def get_historical_report(user_id: str, period: str) -> list[dict]:
                 SUM(mi.fat_g)               AS fat_g
             FROM meal_items mi
             JOIN meals m ON m.id = mi.meal_id
-            WHERE m.user_id = ?
+            WHERE m.user_id = 1
               AND DATE(m.logged_at) >= ?
             GROUP BY day
             ORDER BY day ASC
             """,
-            (int(user_id), since),
+            (since,),
         ).fetchall()
 
         return [

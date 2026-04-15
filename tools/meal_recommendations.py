@@ -5,19 +5,16 @@ from rag.retriever import query as _rag_query
 
 
 @tool
-def get_meal_recommendation(user_id: str) -> str:
+def get_meal_recommendation() -> str:
     """
     Suggest a next meal based on the user's remaining macro budget for today
     combined with evidence-based dietary guidance from the nutrition knowledge base.
-
-    Args:
-        user_id: The user's ID string.
 
     Returns:
         A meal suggestion string tailored to remaining macros and nutritional guidance.
     """
     try:
-        summary = _get_daily_summary(user_id)
+        summary = _get_daily_summary()
         goal = summary.get("goal", {})
 
         # Compute remaining macros

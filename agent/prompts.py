@@ -1,3 +1,6 @@
+from datetime import date
+
+
 def get_system_prompt(summary: str, today_snapshot: dict) -> str:
     """
     Build the full system prompt for the PrecisionPlate nutritionist agent.
@@ -17,7 +20,7 @@ Your role is to help the user track meals, monitor macros, set nutrition goals, 
 informed food choices through natural conversation.
 
 Guidelines:
-- Be warm, concise, and practical.
+- Be concise and practical.
 - Always use the available tools to read or write data — never guess or fabricate numbers.
 - When the user logs a meal, confirm what was stored and show the macro totals.
 - When no goal is set, gently prompt the user to use set_goal before giving progress feedback.
@@ -35,10 +38,10 @@ Guidelines:
 
     # --- Today's nutrition snapshot ---
     goal = today_snapshot.get("goal", {}) or {}
-    cal_goal  = goal.get("calories")
-    pro_goal  = goal.get("protein_g")
+    cal_goal = goal.get("calories")
+    pro_goal = goal.get("protein_g")
     carb_goal = goal.get("carbs_g")
-    fat_goal  = goal.get("fat_g")
+    fat_goal = goal.get("fat_g")
 
     goals_unset = all(v is None for v in [cal_goal, pro_goal, carb_goal, fat_goal])
 
@@ -48,11 +51,11 @@ Guidelines:
         return f"{c} / {t}"
 
     snapshot_lines = [
-        "[TODAY'S NUTRITION SNAPSHOT]",
+        f"[TODAY'S NUTRITION SNAPSHOT — {date.today().strftime('%A, %B %d, %Y')}]",
         f"  Calories: {fmt(today_snapshot.get('calories', 0), cal_goal, unit=' kcal')}",
         f"  Protein:  {fmt(today_snapshot.get('protein_g', 0), pro_goal)}",
-        f"  Carbs:    {fmt(today_snapshot.get('carbs_g', 0),   carb_goal)}",
-        f"  Fat:      {fmt(today_snapshot.get('fat_g', 0),     fat_goal)}",
+        f"  Carbs:    {fmt(today_snapshot.get('carbs_g', 0), carb_goal)}",
+        f"  Fat:      {fmt(today_snapshot.get('fat_g', 0), fat_goal)}",
     ]
     if goals_unset:
         snapshot_lines.append(

@@ -18,14 +18,13 @@ Do not include any other text, markdown, or explanation outside the JSON object.
 
 
 @tool
-def log_meal_photo(user_id: str, image_path: str) -> str:
+def log_meal_photo(image_path: str) -> str:
     """
     Log a meal from a photo by extracting macro data via vision analysis.
     Calls describe_image() on the provided image path, parses the JSON response,
     and stores the meal in the database.
 
     Args:
-        user_id: The user's ID string.
         image_path: Absolute or relative path to a .jpg, .jpeg, or .png image file.
 
     Returns:
@@ -48,7 +47,7 @@ def log_meal_photo(user_id: str, image_path: str) -> str:
             "fat_g":     data.get("fat_g",     0),
         }
 
-        meal_id = log_meal(user_id, description, source="photo")
+        meal_id = log_meal(description, source="photo")
         log_meal_items(meal_id, [item])
 
         return (

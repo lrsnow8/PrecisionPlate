@@ -52,8 +52,7 @@ MAX_TURN_MESSAGES = 8  # max new messages added this turn before forcing summari
 
 def load_context(state: NutritionState) -> dict:
     """Refresh today's macro snapshot from SQLite and inject into state."""
-    user_id = state.get("user_id", "1")
-    snapshot = get_daily_summary(user_id)
+    snapshot = get_daily_summary()
     # Snapshot the current message count so we can measure per-turn growth.
     # Reset the tool-call round counter for the new turn.
     return {

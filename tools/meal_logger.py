@@ -37,14 +37,13 @@ Meal description: {description}
 
 
 @tool
-def log_meal_text(user_id: str, description: str) -> str:
+def log_meal_text(description: str) -> str:
     """
     Log a meal from a natural language description.
     Parses the description using Claude to extract food items and macros,
     then stores them in the database.
 
     Args:
-        user_id: The user's ID string.
         description: Natural language description of the meal.
 
     Returns:
@@ -68,7 +67,7 @@ def log_meal_text(user_id: str, description: str) -> str:
             else:
                 return "Error: could not parse macro data from meal description. Please try rephrasing."
 
-        meal_id = log_meal(user_id, description, source="text")
+        meal_id = log_meal(description, source="text")
         log_meal_items(meal_id, items)
 
         total_calories = sum(i.get("calories", 0) for i in items)

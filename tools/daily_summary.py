@@ -4,18 +4,15 @@ from db.database import get_daily_summary as _get_daily_summary
 
 
 @tool
-def get_daily_summary(user_id: str) -> str:
+def get_daily_summary() -> str:
     """
     Return today's calorie and macro totals compared to the active goal.
-
-    Args:
-        user_id: The user's ID string.
 
     Returns:
         A formatted string showing today's intake vs. goal.
     """
     try:
-        data = _get_daily_summary(user_id)
+        data = _get_daily_summary()
         goal = data.get("goal", {})
 
         def fmt(value, target, unit="g"):
