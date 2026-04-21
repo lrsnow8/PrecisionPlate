@@ -1,4 +1,5 @@
 import os
+from datetime import date
 from langchain_core.tools import tool
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage
@@ -75,7 +76,7 @@ def log_meal_text(description: str) -> str:
         total_carbs    = sum(i.get("carbs_g", 0) for i in items)
         total_fat      = sum(i.get("fat_g", 0) for i in items)
 
-        lines = [f"Meal logged: {description}"]
+        lines = [f"Meal logged on {date.today().isoformat()}: {description}"]
         for item in items:
             lines.append(
                 f"  - {item.get('food_name', 'Unknown')}: "

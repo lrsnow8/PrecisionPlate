@@ -1,4 +1,5 @@
 import json
+from datetime import date
 from langchain_core.tools import tool
 
 from db.database import log_meal, log_meal_items
@@ -34,7 +35,14 @@ def log_meal_photo(image_path: str) -> str:
         response = describe_image(image_path, VISION_PROMPT)
 
         try:
-            data = json.loads(response.content)
+            content = response.content.strip()
+            if content.startswith("```"):
+                # Strip markdown code fences
+                content = content.split("```")[1]
+                if content.startswith("json"):
+                    content = content[4:]
+                content = content.strip()
+            data = json.loads(content)
         except json.JSONDecodeError:
             return "Error: could not parse macro data from image. Please try a clearer photo."
 
@@ -51,7 +59,7 @@ def log_meal_photo(image_path: str) -> str:
         log_meal_items(meal_id, [item])
 
         return (
-            f"Meal logged from photo: {description}\n"
+            f"Meal logged from photo on {date.today().isoformat()}: {description}\n"
             f"  Calories: {item['calories']:.0f} kcal | "
             f"P {item['protein_g']:.1f}g | "
             f"C {item['carbs_g']:.1f}g | "

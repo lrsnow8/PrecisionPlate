@@ -58,6 +58,7 @@ def _create_schema(conn: sqlite3.Connection) -> None:
 # User bootstrap
 # ---------------------------------------------------------------------------
 
+
 def bootstrap_user() -> str:
     """
     Return the user id as a string.
@@ -79,8 +80,8 @@ def bootstrap_user() -> str:
 # Goals
 # ---------------------------------------------------------------------------
 
-def set_goal(calories: float, protein_g: float,
-             carbs_g: float, fat_g: float) -> None:
+
+def set_goal(calories: float, protein_g: float, carbs_g: float, fat_g: float) -> None:
     """Insert a new goal row for the user (most recent row = active goal)."""
     conn = get_db_connection()
     try:
@@ -119,6 +120,7 @@ def get_goal() -> dict | None:
 # ---------------------------------------------------------------------------
 # Meals
 # ---------------------------------------------------------------------------
+
 
 def log_meal(description: str, source: str) -> int:
     """
@@ -173,9 +175,10 @@ def log_meal_items(meal_id: int, items: list[dict]) -> None:
 # Daily summary
 # ---------------------------------------------------------------------------
 
+
 def get_daily_summary() -> dict:
     """
-    Return today's macro totals and the active goal.
+    Return the current date's macro totals and the active goal.
 
     Returns:
         {
@@ -211,10 +214,10 @@ def get_daily_summary() -> dict:
         ).fetchone()
 
         totals = {
-            "calories":  row["calories"],
+            "calories": row["calories"],
             "protein_g": row["protein_g"],
-            "carbs_g":   row["carbs_g"],
-            "fat_g":     row["fat_g"],
+            "carbs_g": row["carbs_g"],
+            "fat_g": row["fat_g"],
         }
 
         # Active goal
@@ -242,6 +245,7 @@ def get_daily_summary() -> dict:
 # ---------------------------------------------------------------------------
 # Historical report
 # ---------------------------------------------------------------------------
+
 
 def get_historical_report(period: str) -> list[dict]:
     """
@@ -283,11 +287,11 @@ def get_historical_report(period: str) -> list[dict]:
 
         return [
             {
-                "date":      row["day"],
-                "calories":  row["calories"],
+                "date": row["day"],
+                "calories": row["calories"],
                 "protein_g": row["protein_g"],
-                "carbs_g":   row["carbs_g"],
-                "fat_g":     row["fat_g"],
+                "carbs_g": row["carbs_g"],
+                "fat_g": row["fat_g"],
             }
             for row in rows
         ]

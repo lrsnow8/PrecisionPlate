@@ -1,3 +1,5 @@
+from datetime import date
+
 from langchain_core.tools import tool
 
 from db.database import get_daily_summary as _get_daily_summary
@@ -14,6 +16,7 @@ def get_meal_recommendation() -> str:
         A meal suggestion string tailored to remaining macros and nutritional guidance.
     """
     try:
+        today = date.today().isoformat()
         summary = _get_daily_summary()
         goal = summary.get("goal", {})
 
@@ -54,7 +57,7 @@ def get_meal_recommendation() -> str:
         )
 
         return (
-            f"Remaining macro budget for today:\n{budget_lines}\n\n"
+            f"Remaining macro budget for today ({today}):\n{budget_lines}\n\n"
             f"Nutrition guidance:\n{rag_context}\n\n"
             f"Based on your remaining budget and the above guidance, "
             f"consider a meal that fills your most under-met macros while "

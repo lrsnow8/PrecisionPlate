@@ -95,8 +95,9 @@ def summarize(state: NutritionState) -> dict:
 
     summary_prompt = (
         "You are summarizing a conversation between a user and a nutrition assistant. "
-        "Produce a concise factual summary covering: goals set, meals logged, "
-        "key nutrition insights discussed, and any outstanding user requests. "
+        "Produce a concise factual summary covering: goals set, meals logged (include "
+        "the date each meal was logged), key nutrition insights discussed, and any "
+        "outstanding user requests. "
         "Be brief — 3 to 8 sentences.\n\n"
     )
     if existing_summary:

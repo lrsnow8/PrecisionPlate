@@ -1,3 +1,5 @@
+from datetime import date
+
 from langchain_core.tools import tool
 
 from db.database import get_daily_summary as _get_daily_summary
@@ -6,12 +8,13 @@ from db.database import get_daily_summary as _get_daily_summary
 @tool
 def get_daily_summary() -> str:
     """
-    Return today's calorie and macro totals compared to the active goal.
+    Return the current dates calorie and macro totals compared to the active goal.
 
     Returns:
         A formatted string showing today's intake vs. goal.
     """
     try:
+        today = date.today().isoformat()
         data = _get_daily_summary()
         goal = data.get("goal", {})
 
@@ -21,11 +24,11 @@ def get_daily_summary() -> str:
             return f"{v} / {t}"
 
         return (
-            f"Today's nutrition summary:\n"
+            f"Today's nutrition summary ({today}):\n"
             f"  Calories: {fmt(data['calories'], goal.get('calories'), unit=' kcal')}\n"
             f"  Protein:  {fmt(data['protein_g'], goal.get('protein_g'))}\n"
-            f"  Carbs:    {fmt(data['carbs_g'],   goal.get('carbs_g'))}\n"
-            f"  Fat:      {fmt(data['fat_g'],     goal.get('fat_g'))}"
+            f"  Carbs:    {fmt(data['carbs_g'], goal.get('carbs_g'))}\n"
+            f"  Fat:      {fmt(data['fat_g'], goal.get('fat_g'))}"
         )
 
     except Exception as e:
